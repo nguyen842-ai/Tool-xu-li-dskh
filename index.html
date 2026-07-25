@@ -65,7 +65,7 @@
             <thead>
                 <tr>
                     <th>STT</th>
-                    <th>Mã KH (F)</th>
+                    <th>Mã KH (D)</th>
                     <th>Tên KH (E)</th>
                     <th>SĐT (G)</th>
                     <th>Phân Khúc (AA)</th>
@@ -186,9 +186,9 @@
                 if (!row) continue; 
 
                 // CHỈ MỤC CỘT DỰA THEO YÊU CẦU:
-                // E (4): Tên KH | F (5): Mã KH | G (6): SĐT | AA (26): Phân khúc | AB (27): Địa chỉ | AH (33): Lat | AI (34): Lng
+                // E (4): Tên KH | F (3): Mã KH | G (6): SĐT | AA (26): Phân khúc | AB (27): Địa chỉ | AH (33): Lat | AI (34): Lng
                 let name = row[4] ? String(row[4]).trim() : "";
-                let cusCode = row[5] ? String(row[5]).trim() : "";
+                let cusCode = row[3] ? String(row[3]).trim() : "";
                 let phone = row[6] ? String(row[6]).trim() : "";
                 let segment = row[26] ? String(row[26]).trim() : "";
                 let address = row[27] ? String(row[27]).trim() : "";
