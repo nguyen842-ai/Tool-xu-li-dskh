@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tool Chuẩn Hóa Dữ Liệu Khách Hàng</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+    <script src="https://unpkg.com/rbush@3.0.1/rbush.min.js"></script>
+
+    <style>
+        :root {
+            --bg-main: #f8fafc; --bg-panel: #ffffff;
+            --color-primary: #0284c7; --color-hover: #0369a1; --color-success: #16a34a;
+            --text-main: #1e293b; --text-muted: #64748b; --border-color: #e2e8f0;
+        }
+        body, html { margin: 0; padding: 0; height: 100%; font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg-main); color: var(--text-main); font-size: 13px; }
+        
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; }
+        
+        .header { background: var(--bg-panel); padding: 20px 25px; border-radius: 10px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 20px; border: 1px solid var(--border-color); }
+        .header h1 { margin: 0 0 15px 0; color: var(--color-primary); font-size: 22px; font-weight: 800; }
+        
+        .control-panel { display: flex; gap: 15px; align-items: center; flex-wrap: wrap; background: #f1f5f9; padding: 15px; border-radius: 8px; border: 1px dashed #cbd5e1; }
+        
+        .status-box { flex-grow: 1; font-weight: bold; color: #ea580c; font-size: 14px; }
+        .status-box.ready { color: var(--color-success); }
+        
+        input[type="file"] { display: none; }
+        .btn-upload { background: var(--color-primary); color: white; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; display: inline-block; transition: 0.2s; border: none; }
+        .btn-upload:hover { background: var(--color-hover); }
+        .btn-upload.disabled { background: #cbd5e1; cursor: not-allowed; }
+        
+        .btn-export { background: var(--color-success); color: white; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; border: none; display: none; transition: 0.2s; }
+        .btn-export:hover { background: #15803d; }
+
+        .table-wrapper { flex-grow: 1; background: var(--bg-panel); border-radius: 10px; border: 1px solid var(--border-color); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow: auto; }
+        table { width: 100%; border-collapse: collapse; text-align: left; white-space: nowrap; }
+        th, td { padding: 10px 14px; border-bottom: 1px solid var(--border-color); }
+        th { background-color: #0f172a; color: #ffffff; position: sticky; top: 0; z-index: 2; font-size: 11px; text-transform: uppercase; font-weight: 600; }
+        tr:hover { background-color: #f8fafc; }
+        .num { text-align: right; font-weight: bold; }
+        .text-green { color: var(--color-success); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>⚙️ HỆ THỐNG XỬ LÝ & CHUẨN HÓA DỮ LIỆU KHÁCH HÀNG</h1>
+        <div class="control-panel">
+            <div id="statusText" class="status-box">⌛ Đang nạp hệ thống (Bản đồ & Doanh số)... Vui lòng chờ!</div>
+            
+            <label for="fileInput" id="lblUpload" class="btn-upload disabled">📂 Tải lên danh sách Excel</label>
+            <input type="file" id="fileInput" accept=".xlsx, .xls" disabled onchange="handleFileUpload(event)">
+            
+            <button id="btnExport" class="btn-export" onclick="exportToExcel()">📥 Xuất File Excel Đã Xử Lý</button>
+        </div>
+    </div>
+
+    <div class="table-wrapper">
+        <table id="resultTable">
+            <thead>
+                <tr>
+                    <th>STT</th>
+                    <th>Mã KH (F)</th>
+                    <th>Tên KH (E)</th>
+                    <th>SĐT (G)</th>
+                    <th>Phân Khúc (AA)</th>
+                    <th>Tỉnh / Thành</th>
+                    <th>Quận / Huyện</th>
+                    <th>Phường / Xã</th>
+                    <th class="num">Doanh Số M5</th>
+                    <th class="num">Doanh Số M6</th>
+                    <th class="num">Doanh Số M7</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                <tr><td colspan="11" style="text-align: center; color: #94a3b8; padding: 40px;">Dữ liệu xem trước sẽ hiển thị tại đây sau khi xử lý...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // CẤU HÌNH SUPABASE
+    const SUPABASE_URL = 'https://mrqldgycwovpbmzdeuyz.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_itZfZBVw7bxE184tGh7x8A_0_r-QB5p'; 
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    
+    const MAP_BUCKET = 'mappingdata'; const DATA_BUCKET = 'data';
+    const GEOJSON_SCAN = 'gadm41_VNM_3.json'; 
+
+    let wardFeatures = [];
+    let salesDictM5 = {}, salesDictM6 = {}, salesDictM7 = {};
+    let finalProcessedData = []; // Lưu trữ mảng kết quả cuối cùng để Export
+
+    // TỰ ĐỘNG KHỞI CHẠY KHI MỞ TRANG
+    window.onload = async function() {
+        try {
+            updateStatus("⌛ Đang tải dữ liệu Doanh Số từ hệ thống...");
+            const { data: salesUrls } = await supabaseClient.storage.from(DATA_BUCKET).createSignedUrls(['dataM5.js', 'dataM6.js', 'dataM7.js'], 60);
+            for (let item of salesUrls) { 
+                if(item.signedUrl) { 
+                    let res = await fetch(item.signedUrl); 
+                    let s = document.createElement('script'); 
+                    s.text = await res.text(); 
+                    document.head.appendChild(s); 
+                } 
+            }
+
+            // Tiền xử lý từ điển Doanh số
+            buildSalesDictionary();
+
+            updateStatus("⌛ Đang nạp Bản đồ & Cây không gian (RBush)...");
+            const { data: geoUrl } = await supabaseClient.storage.from(MAP_BUCKET).createSignedUrls([GEOJSON_SCAN], 60);
+            let resGeo = await fetch(geoUrl[0].signedUrl);
+            let masterGeoJSON = await resGeo.json();
+            masterGeoJSON.features.forEach(f => wardFeatures.push(f));
+
+            // Sẵn sàng!
+            updateStatus("✅ HỆ THỐNG ĐÃ SẴN SÀNG! Vui lòng tải file Excel lên.", true);
+            document.getElementById('lblUpload').classList.remove('disabled');
+            document.getElementById('fileInput').disabled = false;
+
+        } catch (error) {
+            updateStatus("❌ LỖI KHỞI TẠO: " + error.message);
+        }
+    };
+
+    function updateStatus(msg, isReady = false) {
+        let el = document.getElementById('statusText');
+        el.innerHTML = msg;
+        if(isReady) el.classList.add('ready');
+        else el.classList.remove('ready');
+    }
+
+    function buildSalesDictionary() {
+        const buildDict = (arr) => {
+            let dict = {};
+            if (Array.isArray(arr)) {
+                arr.forEach(line => {
+                    if (line && line.cusCode) {
+                        let exactCode = String(line.cusCode).trim();
+                        let rawSales = String(line.sales || 0).replace(/,/g, '').replace(/\s/g, '');
+                        dict[exactCode] = (dict[exactCode] || 0) + (parseFloat(rawSales) || 0);
+                    }
+                });
+            }
+            return dict;
+        };
+
+        try { if(typeof dbSalesM5 !== 'undefined') salesDictM5 = buildDict(dbSalesM5); } catch(e){}
+        try { if(typeof dbSalesM6 !== 'undefined') salesDictM6 = buildDict(dbSalesM6); } catch(e){}
+        try { if(typeof dbSalesM7 !== 'undefined') salesDictM7 = buildDict(dbSalesM7); } catch(e){}
+    }
+
+    // CODE WEB WORKER ĐỂ XỬ LÝ TỌA ĐỘ VÀ TRÍCH XUẤT CỘT
+    const workerCode = `
+        importScripts('https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js', 'https://unpkg.com/rbush@3.0.1/rbush.min.js');
+
+        self.onmessage = function(e) {
+            const { sheetData, wardFeatures } = e.data;
+            let results = [];
+
+            self.postMessage({ type: 'progress', msg: '⌛ Đang tạo Cây Không Gian...' });
+            
+            let spatialTree = new RBush();
+            let treeItems = [];
+            wardFeatures.forEach(f => {
+                let box = turf.bbox(f);
+                f._bbox = box;
+                treeItems.push({ minX: box[0], minY: box[1], maxX: box[2], maxY: box[3], feature: f });
+            });
+            spatialTree.load(treeItems);
+
+            self.postMessage({ type: 'progress', msg: '⌛ Đang quy chiếu tọa độ khách hàng...' });
+            
+            let total = sheetData.length;
+            
+            // Bỏ qua dòng 0 (Tiêu đề), bắt đầu từ 1
+            for (let i = 1; i < total; i++) {
+                let row = sheetData[i];
+                if (!row) continue; 
+
+                // CHỈ MỤC CỘT DỰA THEO YÊU CẦU:
+                // E (4): Tên KH | F (5): Mã KH | G (6): SĐT | AA (26): Phân khúc | AB (27): Địa chỉ | AH (33): Lat | AI (34): Lng
+                let name = row[4] ? String(row[4]).trim() : "";
+                let cusCode = row[5] ? String(row[5]).trim() : "";
+                let phone = row[6] ? String(row[6]).trim() : "";
+                let segment = row[26] ? String(row[26]).trim() : "";
+                let address = row[27] ? String(row[27]).trim() : "";
+                let lat = parseFloat(row[33]); 
+                let lng = parseFloat(row[34]);
+                
+                // Nếu không có mã KH, bỏ qua
+                if(!cusCode) continue;
+
+                let matchedWard = null;
+
+                if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+                    let pt = turf.point([lng, lat]);
+                    let candidates = spatialTree.search({ minX: lng, minY: lat, maxX: lng, maxY: lat });
+                    
+                    for (let item of candidates) {
+                        if (turf.booleanPointInPolygon(pt, item.feature)) {
+                            matchedWard = item.feature.properties;
+                            break; 
+                        }
+                    }
+
+                    // CỨU NÉT: Kéo về phường gần nhất nếu bị trượt viền
+                    if (!matchedWard && candidates.length > 0) {
+                        let closestDist = Infinity;
+                        for (let item of candidates) {
+                            let center = turf.centerOfMass(item.feature);
+                            let dist = turf.distance(pt, center);
+                            if (dist < closestDist) { closestDist = dist; matchedWard = item.feature.properties; }
+                        }
+                    }
+                }
+
+                results.push({
+                    cusCode: cusCode, name: name, phone: phone, segment: segment, address: address, lat: lat || "", lng: lng || "",
+                    province: matchedWard ? (matchedWard.COUNTRY || matchedWard.NAME_1) : "Không xác định", 
+                    district: matchedWard ? (matchedWard.NL_NAME_1 || matchedWard.NAME_2) : "Không xác định",
+                    ward: matchedWard ? (matchedWard.NAME_2 || matchedWard.VARNAME_3) : "Không xác định"
+                });
+
+                if (i % 1000 === 0) {
+                    self.postMessage({ type: 'progress', msg: \`⌛ Đang xử lý: \${Math.round((i / total) * 100)}%\` });
+                }
+            }
+
+            self.postMessage({ type: 'done', results: results });
+        };
+    `;
+
+    async function handleFileUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        updateStatus("⌛ Đang đọc file Excel...");
+        document.getElementById('lblUpload').classList.add('disabled');
+        document.getElementById('btnExport').style.display = 'none';
+        document.getElementById('tableBody').innerHTML = '<tr><td colspan="11" style="text-align: center; color: #94a3b8; padding: 40px;">Đang xử lý dữ liệu...</td></tr>';
+
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, {type: 'array'});
+            const sheetData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1, defval: "" });
+
+            // Gửi qua Web Worker
+            const blob = new Blob([workerCode], { type: 'application/javascript' });
+            const worker = new Worker(URL.createObjectURL(blob));
+
+            worker.onmessage = function(msgEvent) {
+                if (msgEvent.data.type === 'progress') {
+                    updateStatus(msgEvent.data.msg);
+                } 
+                else if (msgEvent.data.type === 'done') {
+                    worker.terminate();
+                    
+                    // Gắn Doanh Số vào mảng kết quả
+                    updateStatus("⌛ Đang ráp dữ liệu Doanh Số...");
+                    
+                    finalProcessedData = msgEvent.data.results.map(row => {
+                        return {
+                            ...row,
+                            salesM5: salesDictM5[row.cusCode] || 0,
+                            salesM6: salesDictM6[row.cusCode] || 0,
+                            salesM7: salesDictM7[row.cusCode] || 0
+                        };
+                    });
+
+                    renderPreviewTable();
+                    
+                    updateStatus(`✅ Xử lý hoàn tất! (${finalProcessedData.length} khách hàng)`, true);
+                    document.getElementById('lblUpload').classList.remove('disabled');
+                    document.getElementById('btnExport').style.display = 'inline-block';
+                }
+            };
+
+            worker.onerror = function(err) {
+                worker.terminate();
+                updateStatus("❌ Lỗi luồng xử lý: " + err.message);
+                document.getElementById('lblUpload').classList.remove('disabled');
+            };
+
+            worker.postMessage({ sheetData: sheetData, wardFeatures: wardFeatures });
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    function renderPreviewTable() {
+        const tbody = document.getElementById('tableBody');
+        tbody.innerHTML = '';
+        
+        // Chỉ hiển thị tối đa 100 dòng để UI không bị đơ
+        let limit = Math.min(finalProcessedData.length, 100);
+
+        for (let i = 0; i < limit; i++) {
+            let r = finalProcessedData[i];
+            tbody.innerHTML += `
+                <tr>
+                    <td style="color:#64748b;">${i + 1}</td>
+                    <td style="font-weight:bold;">${r.cusCode}</td>
+                    <td>${r.name}</td>
+                    <td>${r.phone}</td>
+                    <td>${r.segment}</td>
+                    <td style="color:#0284c7; font-weight:bold;">${r.province}</td>
+                    <td>${r.district}</td>
+                    <td>${r.ward}</td>
+                    <td class="num">${r.salesM5.toLocaleString()}</td>
+                    <td class="num">${r.salesM6.toLocaleString()}</td>
+                    <td class="num text-green">${r.salesM7.toLocaleString()}</td>
+                </tr>
+            `;
+        }
+
+        if (finalProcessedData.length > 100) {
+            tbody.innerHTML += `<tr><td colspan="11" style="text-align: center; color: #ea580c; font-style: italic; padding: 15px;">... và ${finalProcessedData.length - 100} dòng dữ liệu khác (Vui lòng Xuất Excel để xem toàn bộ)</td></tr>`;
+        }
+    }
+
+    function exportToExcel() {
+        if (finalProcessedData.length === 0) return;
+
+        let exportData = [
+            ["Mã KH", "Tên Khách Hàng", "SĐT", "Phân Khúc", "Địa Chỉ", "Vĩ độ (Lat)", "Kinh độ (Lng)", "Tỉnh / Thành", "Quận / Huyện", "Phường / Xã", "Doanh Số M5", "Doanh Số M6", "Doanh Số M7"]
+        ];
+
+        finalProcessedData.forEach(r => {
+            exportData.push([
+                r.cusCode, r.name, r.phone, r.segment, r.address, r.lat, r.lng, 
+                r.province, r.district, r.ward, 
+                r.salesM5, r.salesM6, r.salesM7
+            ]);
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(exportData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Data_Processed");
+        XLSX.writeFile(wb, "DanhSach_KhachHang_DaChuanHoa.xlsx");
+    }
+</script>
+</body>
+</html>
