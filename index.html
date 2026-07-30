@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tool Chuẩn Hóa Dữ Liệu Khách Hàng</title>
+    <title>Tool kiểm tra đơn vị hành chính Việt Nam các cấp trước sáp nhập</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -22,6 +22,8 @@
         
         .header { background: var(--bg-panel); padding: 20px 25px; border-radius: 10px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 20px; border: 1px solid var(--border-color); }
         .header h1 { margin: 0 0 15px 0; color: var(--color-primary); font-size: 22px; font-weight: 800; }
+        
+        .note { background: #fffbeb; color: #b45309; padding: 12px 15px; border-left: 4px solid #f59e0b; margin-bottom: 15px; border-radius: 4px; font-size: 13.5px; line-height: 1.5; }
         
         .control-panel { display: flex; gap: 15px; align-items: center; flex-wrap: wrap; background: #f1f5f9; padding: 15px; border-radius: 8px; border: 1px dashed #cbd5e1; }
         
@@ -49,7 +51,13 @@
 
 <div class="container">
     <div class="header">
-        <h1>⚙️ HỆ THỐNG XỬ LÝ & CHUẨN HÓA DỮ LIỆU KHÁCH HÀNG</h1>
+        <h1>⚙️ Tool kiểm tra đơn vị hành chính Việt Nam các cấp trước sáp nhập</h1>
+        
+        <div class="note">
+            <strong>Lưu ý:</strong> Hãy đảm bảo rằng dữ liệu của bạn trong file excel nằm đúng vị trí như sau: 
+            <strong>Cột D:</strong> Mã KH | <strong>Cột E:</strong> Tên KH | <strong>Cột G:</strong> SĐT | <strong>Cột AA:</strong> Phân khúc | <strong>Cột AB:</strong> Địa chỉ | <strong>Cột AH:</strong> Vĩ độ (Lat) | <strong>Cột AI:</strong> Kinh độ (Lng).
+        </div>
+
         <div class="control-panel">
             <div id="statusText" class="status-box">⌛ Đang nạp hệ thống (Bản đồ & Doanh số)... Vui lòng chờ!</div>
             
@@ -186,7 +194,7 @@
                 if (!row) continue; 
 
                 // CHỈ MỤC CỘT DỰA THEO YÊU CẦU:
-                // E (4): Tên KH | F (3): Mã KH | G (6): SĐT | AA (26): Phân khúc | AB (27): Địa chỉ | AH (33): Lat | AI (34): Lng
+                // E (4): Tên KH | F (3): Mã KH (D là 3) | G (6): SĐT | AA (26): Phân khúc | AB (27): Địa chỉ | AH (33): Lat | AI (34): Lng
                 let name = row[4] ? String(row[4]).trim() : "";
                 let cusCode = row[3] ? String(row[3]).trim() : "";
                 let phone = row[6] ? String(row[6]).trim() : "";
@@ -344,7 +352,7 @@
         const ws = XLSX.utils.aoa_to_sheet(exportData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Data_Processed");
-        XLSX.writeFile(wb, "DanhSach_KhachHang_DaChuanHoa.xlsx");
+        XLSX.writeFile(wb, "DSKH_new.xlsx");
     }
 </script>
 </body>
