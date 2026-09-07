@@ -278,9 +278,9 @@
                     finalProcessedData = msgEvent.data.results.map(row => {
                         return {
                             ...row,
-                            salesM5: salesDictM6[row.cusCode] || 0,
-                            salesM6: salesDictM7[row.cusCode] || 0,
-                            salesM7: salesDictM8[row.cusCode] || 0
+                            salesM6: salesDictM6[row.cusCode] || 0,
+                            salesM7: salesDictM7[row.cusCode] || 0,
+                            salesM8: salesDictM8[row.cusCode] || 0
                         };
                     });
 
@@ -338,7 +338,7 @@
         if (finalProcessedData.length === 0) return;
 
         let exportData = [
-            ["Mã KH", "Tên Khách Hàng", "SĐT", "Phân Khúc", "Địa Chỉ", "Vĩ độ (Lat)", "Kinh độ (Lng)", "Tỉnh / Thành", "Quận / Huyện", "Phường / Xã", "Doanh Số M5", "Doanh Số M6", "Doanh Số M7"]
+            ["Mã KH", "Tên Khách Hàng", "SĐT", "Phân Khúc", "Địa Chỉ", "Vĩ độ (Lat)", "Kinh độ (Lng)", "Tỉnh / Thành", "Quận / Huyện", "Phường / Xã", "Doanh Số T6", "Doanh Số T7", "Doanh Số T8"]
         ];
 
         finalProcessedData.forEach(r => {
