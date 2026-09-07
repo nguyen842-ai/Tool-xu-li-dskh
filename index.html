@@ -80,9 +80,9 @@
                     <th>Tỉnh / Thành</th>
                     <th>Quận / Huyện</th>
                     <th>Phường / Xã</th>
-                    <th class="num">Doanh Số M5</th>
                     <th class="num">Doanh Số M6</th>
                     <th class="num">Doanh Số M7</th>
+                    <th class="num">Doanh Số M8</th>
                 </tr>
             </thead>
             <tbody id="tableBody">
@@ -278,9 +278,9 @@
                     finalProcessedData = msgEvent.data.results.map(row => {
                         return {
                             ...row,
-                            salesM5: salesDictM5[row.cusCode] || 0,
-                            salesM6: salesDictM6[row.cusCode] || 0,
-                            salesM7: salesDictM7[row.cusCode] || 0
+                            salesM5: salesDictM6[row.cusCode] || 0,
+                            salesM6: salesDictM7[row.cusCode] || 0,
+                            salesM7: salesDictM8[row.cusCode] || 0
                         };
                     });
 
@@ -322,9 +322,9 @@
                     <td style="color:#0284c7; font-weight:bold;">${r.province}</td>
                     <td>${r.district}</td>
                     <td>${r.ward}</td>
-                    <td class="num">${r.salesM5.toLocaleString()}</td>
                     <td class="num">${r.salesM6.toLocaleString()}</td>
-                    <td class="num text-green">${r.salesM7.toLocaleString()}</td>
+                    <td class="num">${r.salesM7.toLocaleString()}</td>
+                    <td class="num text-green">${r.salesM8.toLocaleString()}</td>
                 </tr>
             `;
         }
@@ -345,7 +345,7 @@
             exportData.push([
                 r.cusCode, r.name, r.phone, r.segment, r.address, r.lat, r.lng, 
                 r.province, r.district, r.ward, 
-                r.salesM5, r.salesM6, r.salesM7
+                r.salesM6, r.salesM7, r.salesM8
             ]);
         });
 
