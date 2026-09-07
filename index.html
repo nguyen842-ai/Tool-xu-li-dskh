@@ -102,14 +102,14 @@
     const GEOJSON_SCAN = 'gadm41_VNM_3.json'; 
 
     let wardFeatures = [];
-    let salesDictM5 = {}, salesDictM6 = {}, salesDictM7 = {};
+    let salesDictM6 = {}, salesDictM7 = {}, salesDictM8 = {};
     let finalProcessedData = []; // Lưu trữ mảng kết quả cuối cùng để Export
 
     // TỰ ĐỘNG KHỞI CHẠY KHI MỞ TRANG
     window.onload = async function() {
         try {
             updateStatus("⌛ Đang tải dữ liệu Doanh Số từ hệ thống...");
-            const { data: salesUrls } = await supabaseClient.storage.from(DATA_BUCKET).createSignedUrls(['dataM5.js', 'dataM6.js', 'dataM7.js'], 60);
+            const { data: salesUrls } = await supabaseClient.storage.from(DATA_BUCKET).createSignedUrls(['dataM6.js', 'dataM7.js', 'dataM8.js'], 60);
             for (let item of salesUrls) { 
                 if(item.signedUrl) { 
                     let res = await fetch(item.signedUrl); 
