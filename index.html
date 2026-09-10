@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tool kiểm tra đơn vị hành chính Việt Nam các cấp trước sáp nhập</title>
+    <title>Tool kiểm tra đơn vị hành chính Việt Nam</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -25,6 +25,11 @@
         
         .note { background: #fffbeb; color: #b45309; padding: 12px 15px; border-left: 4px solid #f59e0b; margin-bottom: 15px; border-radius: 4px; font-size: 13.5px; line-height: 1.5; }
         
+        .tabs { display: flex; gap: 10px; margin-bottom: 15px; border-bottom: 2px solid var(--border-color); padding-bottom: 10px; }
+        .tab-btn { background: none; border: 1px solid transparent; padding: 8px 16px; font-weight: 600; font-size: 14px; cursor: pointer; color: var(--text-muted); border-radius: 6px; transition: 0.2s; }
+        .tab-btn:hover { background: #f1f5f9; color: var(--text-main); }
+        .tab-btn.active { background: #e0f2fe; color: var(--color-primary); border: 1px solid #bae6fd; }
+
         .control-panel { display: flex; gap: 15px; align-items: center; flex-wrap: wrap; background: #f1f5f9; padding: 15px; border-radius: 8px; border: 1px dashed #cbd5e1; }
         
         .status-box { flex-grow: 1; font-weight: bold; color: #ea580c; font-size: 14px; }
@@ -38,45 +43,57 @@
         .btn-export { background: var(--color-success); color: white; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; border: none; display: none; transition: 0.2s; }
         .btn-export:hover { background: #15803d; }
 
-        .table-wrapper { flex-grow: 1; background: var(--bg-panel); border-radius: 10px; border: 1px solid var(--border-color); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow: auto; }
+        .table-wrapper { flex-grow: 1; background: var(--bg-panel); border-radius: 10px; border: 1px solid var(--border-color); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow: auto; display: none; }
+        .table-wrapper.active { display: block; }
+
         table { width: 100%; border-collapse: collapse; text-align: left; white-space: nowrap; }
         th, td { padding: 10px 14px; border-bottom: 1px solid var(--border-color); }
         th { background-color: #0f172a; color: #ffffff; position: sticky; top: 0; z-index: 2; font-size: 11px; text-transform: uppercase; font-weight: 600; }
         tr:hover { background-color: #f8fafc; }
         .num { text-align: right; font-weight: bold; }
         .text-green { color: var(--color-success); }
+        .text-warn { color: #ea580c; font-size: 11px; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="header">
-        <h1>⚙️ Tool kiểm tra đơn vị hành chính Việt Nam các cấp trước sáp nhập</h1>
+        <h1>⚙️ Tool Xử Lý Đơn Vị Hành Chính Việt Nam</h1>
         
-        <div class="note">
-            <strong>Lưu ý:</strong> Hãy đảm bảo rằng dữ liệu của bạn trong file excel nằm đúng vị trí như sau: 
-            <strong>Cột D:</strong> Mã KH (Bắt buộc) | <strong>Cột E:</strong> Tên KH | <strong>Cột G:</strong> SĐT (Nếu có) | <strong>Cột AA:</strong> Phân khúc (Nếu có) | <strong>Cột AB:</strong> Địa chỉ (Nếu có) | <strong>Cột AH:</strong> Vĩ độ (Lat-Bắt buộc)</strong> | <strong>Cột AI:</strong> Kinh độ (Lng-Bắt buộc).</strong> 
+        <!-- Tab Navigation -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('tab-geo', this)">📍 Từ Tọa Độ -> Hành Chính</button>
+            <button class="tab-btn" onclick="switchTab('tab-text', this)">📝 Từ Tên Phường/Xã -> Quận/Tỉnh</button>
         </div>
 
-        <div class="control-panel">
-            <div id="statusText" class="status-box">⌛ Đang nạp hệ thống (Bản đồ & Doanh số)... Vui lòng chờ!</div>
-            
-            <label for="fileInput" id="lblUpload" class="btn-upload disabled">📂 Tải lên danh sách Excel</label>
-            <input type="file" id="fileInput" accept=".xlsx, .xls" disabled onchange="handleFileUpload(event)">
-            
-            <button id="btnExport" class="btn-export" onclick="exportToExcel()">📥 Xuất File Excel Đã Xử Lý</button>
+        <div id="statusText" class="status-box" style="margin-bottom: 15px;">⌛ Đang nạp dữ liệu bản đồ toàn quốc... Vui lòng chờ!</div>
+
+        <!-- CONTROL PANEL TAB 1 -->
+        <div id="control-geo" class="control-panel">
+            <div style="width: 100%; font-size: 13px; color: #b45309;"><strong>Dữ liệu yêu cầu:</strong> Cột D (Mã KH) | AH (Vĩ độ) | AI (Kinh độ)</div>
+            <label for="fileInputGeo" id="lblUploadGeo" class="btn-upload disabled">📂 Tải lên danh sách Excel (Tọa độ)</label>
+            <input type="file" id="fileInputGeo" accept=".xlsx, .xls" disabled onchange="handleFileUploadGeo(event)">
+            <button id="btnExportGeo" class="btn-export" onclick="exportToExcelGeo()">📥 Xuất File Tọa Độ Đã Xử Lý</button>
+        </div>
+
+        <!-- CONTROL PANEL TAB 2 -->
+        <div id="control-text" class="control-panel" style="display: none;">
+            <div style="width: 100%; font-size: 13px; color: #b45309;"><strong>Dữ liệu yêu cầu:</strong> Cột A chứa Tên Phường/Xã.</div>
+            <label for="fileInputText" id="lblUploadText" class="btn-upload disabled">📂 Tải lên danh sách Excel (Tên Phường/Xã)</label>
+            <input type="file" id="fileInputText" accept=".xlsx, .xls" disabled onchange="handleFileUploadText(event)">
+            <button id="btnExportText" class="btn-export" onclick="exportToExcelText()">📥 Xuất File Dò Tên Đã Xử Lý</button>
         </div>
     </div>
 
-    <div class="table-wrapper">
-        <table id="resultTable">
+    <!-- BẢNG TAB 1 -->
+    <div id="table-geo" class="table-wrapper active">
+        <table id="resultTableGeo">
             <thead>
                 <tr>
                     <th>STT</th>
                     <th>Mã KH (D)</th>
                     <th>Tên KH (E)</th>
-                    <th>SĐT (G)</th>
-                    <th>Phân Khúc (AA)</th>
                     <th>Tỉnh / Thành</th>
                     <th>Quận / Huyện</th>
                     <th>Phường / Xã</th>
@@ -85,8 +102,27 @@
                     <th class="num">Doanh Số M8</th>
                 </tr>
             </thead>
-            <tbody id="tableBody">
-                <tr><td colspan="11" style="text-align: center; color: #94a3b8; padding: 40px;">Dữ liệu xem trước sẽ hiển thị tại đây sau khi xử lý...</td></tr>
+            <tbody id="tableBodyGeo">
+                <tr><td colspan="9" style="text-align: center; color: #94a3b8; padding: 40px;">Dữ liệu tọa độ sẽ hiển thị tại đây...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- BẢNG TAB 2 -->
+    <div id="table-text" class="table-wrapper">
+        <table id="resultTableText">
+            <thead>
+                <tr>
+                    <th>STT</th>
+                    <th>Dữ liệu gốc (Cột A)</th>
+                    <th>Tỉnh / Thành tìm được</th>
+                    <th>Quận / Huyện tìm được</th>
+                    <th>Phường / Xã chuẩn</th>
+                    <th>Ghi chú / Cảnh báo</th>
+                </tr>
+            </thead>
+            <tbody id="tableBodyText">
+                <tr><td colspan="6" style="text-align: center; color: #94a3b8; padding: 40px;">Dữ liệu dò tên phường/xã sẽ hiển thị tại đây...</td></tr>
             </tbody>
         </table>
     </div>
@@ -103,7 +139,30 @@
 
     let wardFeatures = [];
     let salesDictM6 = {}, salesDictM7 = {}, salesDictM8 = {};
-    let finalProcessedData = []; // Lưu trữ mảng kết quả cuối cùng để Export
+    
+    // Dữ liệu dùng chung
+    let listAdminText = []; // Từ điển tra cứu văn bản
+    let finalProcessedGeoData = []; 
+    let finalProcessedTextData = [];
+
+    // Chuyển Tab UI
+    function switchTab(tabId, btnElement) {
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        btnElement.classList.add('active');
+        
+        document.getElementById('control-geo').style.display = tabId === 'tab-geo' ? 'flex' : 'none';
+        document.getElementById('control-text').style.display = tabId === 'tab-text' ? 'flex' : 'none';
+        
+        document.getElementById('table-geo').classList.remove('active');
+        document.getElementById('table-text').classList.remove('active');
+        document.getElementById('table-' + tabId.split('-')[1]).classList.add('active');
+    }
+
+    function updateStatus(msg, isReady = false) {
+        let el = document.getElementById('statusText');
+        el.innerHTML = msg;
+        if(isReady) el.classList.add('ready'); else el.classList.remove('ready');
+    }
 
     // TỰ ĐỘNG KHỞI CHẠY KHI MỞ TRANG
     window.onload = async function() {
@@ -118,31 +177,46 @@
                     document.head.appendChild(s); 
                 } 
             }
-
-            // Tiền xử lý từ điển Doanh số
             buildSalesDictionary();
 
-            updateStatus("⌛ Đang nạp Bản đồ & Cây không gian (RBush)...");
+            updateStatus("⌛ Đang nạp Bản đồ không gian...");
             const { data: geoUrl } = await supabaseClient.storage.from(MAP_BUCKET).createSignedUrls([GEOJSON_SCAN], 60);
             let resGeo = await fetch(geoUrl[0].signedUrl);
             let masterGeoJSON = await resGeo.json();
-            masterGeoJSON.features.forEach(f => wardFeatures.push(f));
+            
+            masterGeoJSON.features.forEach(f => {
+                wardFeatures.push(f);
+                
+                // Trích xuất từ điển Phường Xã cho TAB 2
+                let p = f.properties.NAME_1 || f.properties.COUNTRY || "";
+                let d = f.properties.NAME_2 || f.properties.NL_NAME_1 || "";
+                let w = f.properties.NAME_3 || f.properties.VARNAME_3 || f.properties.NAME_2 || "";
+                
+                if(w) {
+                    listAdminText.push({
+                        province: p, district: d, ward: w,
+                        norm: normalizeText(w),
+                        normNoPrefix: normalizeText(w).replace(/^(phuong|xa|thi tran|tt)\s+/i, '').trim()
+                    });
+                }
+            });
 
             // Sẵn sàng!
-            updateStatus("✅ HỆ THỐNG ĐÃ SẴN SÀNG! Vui lòng tải file Excel lên.", true);
-            document.getElementById('lblUpload').classList.remove('disabled');
-            document.getElementById('fileInput').disabled = false;
+            updateStatus("✅ HỆ THỐNG ĐÃ SẴN SÀNG! Vui lòng chọn tính năng và tải file Excel lên.", true);
+            document.getElementById('lblUploadGeo').classList.remove('disabled');
+            document.getElementById('lblUploadText').classList.remove('disabled');
+            document.getElementById('fileInputGeo').disabled = false;
+            document.getElementById('fileInputText').disabled = false;
 
         } catch (error) {
             updateStatus("❌ LỖI KHỞI TẠO: " + error.message);
         }
     };
 
-    function updateStatus(msg, isReady = false) {
-        let el = document.getElementById('statusText');
-        el.innerHTML = msg;
-        if(isReady) el.classList.add('ready');
-        else el.classList.remove('ready');
+    // Hàm chuẩn hóa tiếng việt không dấu để so sánh
+    function normalizeText(str) {
+        if(!str) return "";
+        return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").trim();
     }
 
     function buildSalesDictionary() {
@@ -159,20 +233,134 @@
             }
             return dict;
         };
-
         try { if(typeof dbSalesM6 !== 'undefined') salesDictM6 = buildDict(dbSalesM6); } catch(e){}
         try { if(typeof dbSalesM7 !== 'undefined') salesDictM7 = buildDict(dbSalesM7); } catch(e){}
         try { if(typeof dbSalesM8 !== 'undefined') salesDictM8 = buildDict(dbSalesM8); } catch(e){}
     }
 
-    // CODE WEB WORKER ĐỂ XỬ LÝ TỌA ĐỘ VÀ TRÍCH XUẤT CỘT
+    /* =========================================
+       XỬ LÝ TAB 2: TỪ TEXT PHƯỜNG XÃ
+    ========================================= */
+    function handleFileUploadText(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        updateStatus("⌛ Đang xử lý dò tên...");
+        document.getElementById('btnExportText').style.display = 'none';
+        document.getElementById('tableBodyText').innerHTML = '<tr><td colspan="6" style="text-align: center; color: #94a3b8; padding: 40px;">Đang dò tìm...</td></tr>';
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, {type: 'array'});
+            
+            // Xử lý đọc file an toàn (bắt đầu từ cột A dù trống)
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            let sheetData = [];
+            if (sheet['!ref']) {
+                let range = XLSX.utils.decode_range(sheet['!ref']);
+                range.s.c = 0; 
+                sheetData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "", range: range });
+            }
+
+            finalProcessedTextData = [];
+            
+            for (let i = 1; i < sheetData.length; i++) { // Bỏ dòng tiêu đề (index 0)
+                let row = sheetData[i];
+                if (!row) continue;
+                
+                let inputVal = row[0] ? String(row[0]).trim() : "";
+                if(!inputVal) continue;
+
+                let matches = searchWardInDictionary(inputVal);
+                let result = {
+                    input: inputVal,
+                    province: "Không tìm thấy", district: "Không tìm thấy", ward: "Không tìm thấy",
+                    note: "Không khớp với danh mục hành chính"
+                };
+
+                if (matches.length > 0) {
+                    result.province = matches[0].province;
+                    result.district = matches[0].district;
+                    result.ward = matches[0].ward;
+                    result.note = matches.length > 1 
+                        ? `Có ${matches.length} phường/xã trùng tên. Đây là kết quả đầu tiên.` 
+                        : "Khớp 1 kết quả duy nhất.";
+                }
+
+                finalProcessedTextData.push(result);
+            }
+
+            renderPreviewTableText();
+            updateStatus(`✅ Đã dò xong ${finalProcessedTextData.length} dòng!`, true);
+            document.getElementById('btnExportText').style.display = 'inline-block';
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    function searchWardInDictionary(input) {
+        let nInput = normalizeText(input);
+        let nInputNoPrefix = nInput.replace(/^(phuong|xa|thi tran|tt)\s+/i, '').trim();
+
+        // Ưu tiên 1: Khớp chính xác hoàn toàn (Ví dụ: "phuong ben nghe" == "phuong ben nghe")
+        let exact = listAdminText.filter(x => x.norm === nInput);
+        if(exact.length > 0) return exact;
+
+        // Ưu tiên 2: Khớp chính xác sau khi bỏ chữ Phường/Xã (Ví dụ Gõ "Bến Nghé" sẽ khớp với "Phường Bến Nghé")
+        let exactNoPrefix = listAdminText.filter(x => x.normNoPrefix === nInputNoPrefix);
+        if(exactNoPrefix.length > 0) return exactNoPrefix;
+
+        // Ưu tiên 3: Tìm gần đúng (chứa chuỗi)
+        return listAdminText.filter(x => x.norm.includes(nInput) || nInput.includes(x.norm));
+    }
+
+    function renderPreviewTableText() {
+        const tbody = document.getElementById('tableBodyText');
+        tbody.innerHTML = '';
+        let limit = Math.min(finalProcessedTextData.length, 100);
+
+        for (let i = 0; i < limit; i++) {
+            let r = finalProcessedTextData[i];
+            let noteColor = r.note.includes("trùng tên") ? "color:#ea580c;" : "color:#16a34a;";
+            if(r.note.includes("Không khớp")) noteColor = "color:#dc2626;";
+
+            tbody.innerHTML += `
+                <tr>
+                    <td style="color:#64748b;">${i + 1}</td>
+                    <td style="font-weight:bold;">${r.input}</td>
+                    <td style="color:#0284c7; font-weight:bold;">${r.province}</td>
+                    <td>${r.district}</td>
+                    <td>${r.ward}</td>
+                    <td style="font-size:11px; ${noteColor}">${r.note}</td>
+                </tr>
+            `;
+        }
+        if (finalProcessedTextData.length > 100) {
+            tbody.innerHTML += `<tr><td colspan="6" style="text-align: center; color: #ea580c; font-style: italic; padding: 15px;">... và ${finalProcessedTextData.length - 100} dòng dữ liệu khác (Xuất Excel để xem toàn bộ)</td></tr>`;
+        }
+    }
+
+    function exportToExcelText() {
+        if (finalProcessedTextData.length === 0) return;
+        let exportData = [["STT", "Dữ liệu gốc (Cột A)", "Tỉnh / Thành", "Quận / Huyện", "Phường / Xã", "Ghi chú"]];
+        finalProcessedTextData.forEach((r, idx) => {
+            exportData.push([idx + 1, r.input, r.province, r.district, r.ward, r.note]);
+        });
+        const ws = XLSX.utils.aoa_to_sheet(exportData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Do_Ten_Hanh_Chinh");
+        XLSX.writeFile(wb, "KetQua_DoTen.xlsx");
+    }
+
+    /* =========================================
+       XỬ LÝ TAB 1: TỪ TỌA ĐỘ (CŨ)
+    ========================================= */
+    // Giữ nguyên Web Worker cũ của bạn
     const workerCode = `
         importScripts('https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js', 'https://unpkg.com/rbush@3.0.1/rbush.min.js');
-
         self.onmessage = function(e) {
             const { sheetData, wardFeatures } = e.data;
             let results = [];
-
             self.postMessage({ type: 'progress', msg: '⌛ Đang tạo Cây Không Gian...' });
             
             let spatialTree = new RBush();
@@ -185,41 +373,28 @@
             spatialTree.load(treeItems);
 
             self.postMessage({ type: 'progress', msg: '⌛ Đang quy chiếu tọa độ khách hàng...' });
-            
             let total = sheetData.length;
             
-            // Bỏ qua dòng 0 (Tiêu đề), bắt đầu từ 1
             for (let i = 1; i < total; i++) {
                 let row = sheetData[i];
                 if (!row) continue; 
-
-                // CHỈ MỤC CỘT DỰA THEO YÊU CẦU:
-                // E (4): Tên KH | F (3): Mã KH (D là 3) | G (6): SĐT | AA (26): Phân khúc | AB (27): Địa chỉ | AH (33): Lat | AI (34): Lng
+                
                 let name = row[4] ? String(row[4]).trim() : "";
                 let cusCode = row[3] ? String(row[3]).trim() : "";
-                let phone = row[6] ? String(row[6]).trim() : "";
-                let segment = row[26] ? String(row[26]).trim() : "";
-                let address = row[27] ? String(row[27]).trim() : "";
-                let lat = parseFloat(row[33]); 
-                let lng = parseFloat(row[34]);
+                let lat = parseFloat(String(row[33]).replace(',', '.')); 
+                let lng = parseFloat(String(row[34]).replace(',', '.'));
                 
-                // Nếu không có mã KH, bỏ qua
                 if(!cusCode) continue;
-
                 let matchedWard = null;
 
                 if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
                     let pt = turf.point([lng, lat]);
                     let candidates = spatialTree.search({ minX: lng, minY: lat, maxX: lng, maxY: lat });
-                    
                     for (let item of candidates) {
                         if (turf.booleanPointInPolygon(pt, item.feature)) {
-                            matchedWard = item.feature.properties;
-                            break; 
+                            matchedWard = item.feature.properties; break; 
                         }
                     }
-
-                    // CỨU NÉT: Kéo về phường gần nhất nếu bị trượt viền
                     if (!matchedWard && candidates.length > 0) {
                         let closestDist = Infinity;
                         for (let item of candidates) {
@@ -229,39 +404,40 @@
                         }
                     }
                 }
-
                 results.push({
-                    cusCode: cusCode, name: name, phone: phone, segment: segment, address: address, lat: lat || "", lng: lng || "",
+                    cusCode: cusCode, name: name, lat: lat || "", lng: lng || "",
                     province: matchedWard ? (matchedWard.COUNTRY || matchedWard.NAME_1) : "Không xác định", 
                     district: matchedWard ? (matchedWard.NL_NAME_1 || matchedWard.NAME_2) : "Không xác định",
                     ward: matchedWard ? (matchedWard.NAME_2 || matchedWard.VARNAME_3) : "Không xác định"
                 });
 
-                if (i % 1000 === 0) {
-                    self.postMessage({ type: 'progress', msg: \`⌛ Đang xử lý: \${Math.round((i / total) * 100)}%\` });
-                }
+                if (i % 1000 === 0) self.postMessage({ type: 'progress', msg: \`⌛ Đang xử lý: \${Math.round((i / total) * 100)}%\` });
             }
-
             self.postMessage({ type: 'done', results: results });
         };
     `;
 
-    async function handleFileUpload(event) {
+    async function handleFileUploadGeo(event) {
         const file = event.target.files[0];
         if (!file) return;
 
-        updateStatus("⌛ Đang đọc file Excel...");
-        document.getElementById('lblUpload').classList.add('disabled');
-        document.getElementById('btnExport').style.display = 'none';
-        document.getElementById('tableBody').innerHTML = '<tr><td colspan="11" style="text-align: center; color: #94a3b8; padding: 40px;">Đang xử lý dữ liệu...</td></tr>';
+        updateStatus("⌛ Đang đọc file Excel (Tọa độ)...");
+        document.getElementById('btnExportGeo').style.display = 'none';
+        document.getElementById('tableBodyGeo').innerHTML = '<tr><td colspan="9" style="text-align: center; color: #94a3b8; padding: 40px;">Đang xử lý dữ liệu...</td></tr>';
 
         const reader = new FileReader();
         reader.onload = async function(e) {
             const data = new Uint8Array(e.target.result);
             const workbook = XLSX.read(data, {type: 'array'});
-            const sheetData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1, defval: "" });
+            
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            let sheetData = [];
+            if (sheet['!ref']) {
+                let range = XLSX.utils.decode_range(sheet['!ref']);
+                range.s.c = 0; // Ép đọc chuẩn từ cột A
+                sheetData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "", range: range });
+            }
 
-            // Gửi qua Web Worker
             const blob = new Blob([workerCode], { type: 'application/javascript' });
             const worker = new Worker(URL.createObjectURL(blob));
 
@@ -271,11 +447,9 @@
                 } 
                 else if (msgEvent.data.type === 'done') {
                     worker.terminate();
-                    
-                    // Gắn Doanh Số vào mảng kết quả
                     updateStatus("⌛ Đang ráp dữ liệu Doanh Số...");
                     
-                    finalProcessedData = msgEvent.data.results.map(row => {
+                    finalProcessedGeoData = msgEvent.data.results.map(row => {
                         return {
                             ...row,
                             salesM6: salesDictM6[row.cusCode] || 0,
@@ -284,41 +458,28 @@
                         };
                     });
 
-                    renderPreviewTable();
-                    
-                    updateStatus(`✅ Xử lý hoàn tất! (${finalProcessedData.length} khách hàng)`, true);
-                    document.getElementById('lblUpload').classList.remove('disabled');
-                    document.getElementById('btnExport').style.display = 'inline-block';
+                    renderPreviewTableGeo();
+                    updateStatus(`✅ Xử lý tọa độ hoàn tất! (${finalProcessedGeoData.length} KH)`, true);
+                    document.getElementById('btnExportGeo').style.display = 'inline-block';
                 }
             };
-
-            worker.onerror = function(err) {
-                worker.terminate();
-                updateStatus("❌ Lỗi luồng xử lý: " + err.message);
-                document.getElementById('lblUpload').classList.remove('disabled');
-            };
-
             worker.postMessage({ sheetData: sheetData, wardFeatures: wardFeatures });
         };
         reader.readAsArrayBuffer(file);
     }
 
-    function renderPreviewTable() {
-        const tbody = document.getElementById('tableBody');
+    function renderPreviewTableGeo() {
+        const tbody = document.getElementById('tableBodyGeo');
         tbody.innerHTML = '';
-        
-        // Chỉ hiển thị tối đa 100 dòng để UI không bị đơ
-        let limit = Math.min(finalProcessedData.length, 100);
+        let limit = Math.min(finalProcessedGeoData.length, 100);
 
         for (let i = 0; i < limit; i++) {
-            let r = finalProcessedData[i];
+            let r = finalProcessedGeoData[i];
             tbody.innerHTML += `
                 <tr>
                     <td style="color:#64748b;">${i + 1}</td>
                     <td style="font-weight:bold;">${r.cusCode}</td>
                     <td>${r.name}</td>
-                    <td>${r.phone}</td>
-                    <td>${r.segment}</td>
                     <td style="color:#0284c7; font-weight:bold;">${r.province}</td>
                     <td>${r.district}</td>
                     <td>${r.ward}</td>
@@ -328,31 +489,23 @@
                 </tr>
             `;
         }
-
-        if (finalProcessedData.length > 100) {
-            tbody.innerHTML += `<tr><td colspan="11" style="text-align: center; color: #ea580c; font-style: italic; padding: 15px;">... và ${finalProcessedData.length - 100} dòng dữ liệu khác (Vui lòng Xuất Excel để xem toàn bộ)</td></tr>`;
+        if (finalProcessedGeoData.length > 100) {
+            tbody.innerHTML += `<tr><td colspan="9" style="text-align: center; color: #ea580c; font-style: italic; padding: 15px;">... và ${finalProcessedGeoData.length - 100} dòng dữ liệu khác (Xuất Excel để xem toàn bộ)</td></tr>`;
         }
     }
 
-    function exportToExcel() {
-        if (finalProcessedData.length === 0) return;
-
+    function exportToExcelGeo() {
+        if (finalProcessedGeoData.length === 0) return;
         let exportData = [
-            ["Mã KH", "Tên Khách Hàng", "SĐT", "Phân Khúc", "Địa Chỉ", "Vĩ độ (Lat)", "Kinh độ (Lng)", "Tỉnh / Thành", "Quận / Huyện", "Phường / Xã", "Doanh Số T6", "Doanh Số T7", "Doanh Số T8"]
+            ["Mã KH", "Tên Khách Hàng", "Vĩ độ (Lat)", "Kinh độ (Lng)", "Tỉnh / Thành", "Quận / Huyện", "Phường / Xã", "Doanh Số T6", "Doanh Số T7", "Doanh Số T8"]
         ];
-
-        finalProcessedData.forEach(r => {
-            exportData.push([
-                r.cusCode, r.name, r.phone, r.segment, r.address, r.lat, r.lng, 
-                r.province, r.district, r.ward, 
-                r.salesM6, r.salesM7, r.salesM8
-            ]);
+        finalProcessedGeoData.forEach(r => {
+            exportData.push([ r.cusCode, r.name, r.lat, r.lng, r.province, r.district, r.ward, r.salesM6, r.salesM7, r.salesM8 ]);
         });
-
         const ws = XLSX.utils.aoa_to_sheet(exportData);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Data_Processed");
-        XLSX.writeFile(wb, "DSKH_new.xlsx");
+        XLSX.utils.book_append_sheet(wb, ws, "Toa_Do_Hanh_Chinh");
+        XLSX.writeFile(wb, "KetQua_ToaDo.xlsx");
     }
 </script>
 </body>
